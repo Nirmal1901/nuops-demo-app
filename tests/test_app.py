@@ -12,3 +12,4 @@ def test_increment_counter():
 def test_missing_test():
     # No assertion - bad test
     pass
+    

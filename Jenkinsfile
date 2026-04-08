@@ -1,10 +1,6 @@
 pipeline {
     agent any
     
-    tools {
-        sonarQubeScanner 'SonarQube-Scanner'
-    }
-    
     environment {
         SONAR_HOST_URL = 'http://localhost:9000'
         SONAR_TOKEN = credentials('sonar-token')
@@ -49,18 +45,19 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    withSonarQubeEnv('SonarQube-Local') {
-                        sh '''
-                            echo "🔍 Running SonarQube analysis..."
-                            sonar-scanner \
-                                -Dsonar.projectKey=nuops-demo-app \
-                                -Dsonar.projectName="NuOps Demo App" \
-                                -Dsonar.sources=. \
-                                -Dsonar.exclusions=**/tests/**,**/venv/** \
-                                -Dsonar.python.coverage.reportPaths=coverage.xml \
-                                -Dsonar.python.xunit.reportPath=test-results.xml
-                        '''
-                    }
+                    // Ensure sonar-scanner is in PATH
+                    sh '''
+                        export PATH=$PATH:/opt/homebrew/bin
+                        echo "🔍 Running SonarQube analysis..."
+                        sonar-scanner \
+                            -Dsonar.projectKey=nuops-demo-app \
+                            -Dsonar.projectName="NuOps Demo App" \
+                            -Dsonar.sources=. \
+                            -Dsonar.exclusions=**/tests/**,**/venv/** \
+                            -Dsonar.python.coverage.reportPaths=coverage.xml \
+                            -Dsonar.python.xunit.reportPath=test-results.xml \
+                            -Dsonar.host.url=${SONAR_HOST_URL}
+                    '''
                 }
             }
         }

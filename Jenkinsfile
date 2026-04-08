@@ -47,7 +47,7 @@ pipeline {
                 withSonarQubeEnv('SonarQube-Local') {
                     sh '''
                         echo "🔍 Running SonarQube analysis..."
-                        sonar-scanner \
+                        /opt/homebrew/bin/sonar-scanner \
                             -Dsonar.projectKey=nuops-demo-app \
                             -Dsonar.projectName="NuOps Demo App" \
                             -Dsonar.sources=. \

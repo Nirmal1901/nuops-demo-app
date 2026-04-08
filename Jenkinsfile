@@ -1,6 +1,10 @@
 pipeline {
     agent any
     
+    tools {
+        sonarQubeScanner 'SonarQube-Scanner'
+    }
+    
     environment {
         SONAR_HOST_URL = 'http://localhost:9000'
         SONAR_TOKEN = credentials('sonar-token')
@@ -23,7 +27,6 @@ pipeline {
         }
         
         stage('Run Tests') {
-            // Continue even if tests fail
             steps {
                 script {
                     try {
@@ -44,7 +47,6 @@ pipeline {
         }
         
         stage('SonarQube Analysis') {
-            // Run SonarQube regardless of test results
             steps {
                 script {
                     withSonarQubeEnv('SonarQube-Local') {
@@ -74,7 +76,6 @@ pipeline {
     
     post {
         always {
-            // Always send results to NuOps
             script {
                 sh """
                     curl -X POST http://localhost:5001/webhook \

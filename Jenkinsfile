@@ -1,11 +1,91 @@
 pipeline {
     agent any
     
+    environment {
+        SONAR_HOST_URL = 'http://localhost:9000'
+        SONAR_TOKEN = credentials('sonar-token')
+    }
+    
     stages {
-        stage('Hello') {
+        stage('Checkout') {
             steps {
-                echo 'Hello from Jenkins!'
+                checkout scm
+                echo "📦 Checked out from ${env.GIT_BRANCH}"
             }
+        }
+        
+        stage('Setup Python') {
+            steps {
+                sh '''
+                    echo "🐍 Setting up Python environment..."
+                    python3 -m pip install --upgrade pip
+                    python3 -m pip install -r requirements.txt
+                '''
+            }
+        }
+        
+        stage('Run Tests') {
+            steps {
+                sh '''
+                    echo "🧪 Running unit tests..."
+                    python3 -m pytest tests/ -v --junitxml=test-results.xml --cov=. --cov-report=xml
+                '''
+            }
+            post {
+                always {
+                    junit 'test-results.xml'
+                }
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    withSonarQubeEnv('SonarQube-Local') {
+                        sh '''
+                            echo "🔍 Running SonarQube analysis..."
+                            sonar-scanner \
+                                -Dsonar.projectKey=nuops-demo-app \
+                                -Dsonar.projectName="NuOps Demo App" \
+                                -Dsonar.projectVersion=1.0 \
+                                -Dsonar.sources=. \
+                                -Dsonar.exclusions=**/tests/**,**/venv/** \
+                                -Dsonar.python.coverage.reportPaths=coverage.xml \
+                                -Dsonar.python.xunit.reportPath=test-results.xml
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo "✅ Pipeline succeeded!"
+        }
+        failure {
+            echo "❌ Pipeline failed! Check the logs above."
+            
+            // Trigger NuOps webhook (using localhost instead of host.docker.internal)
+            sh '''
+                curl -X POST http://localhost:5001/webhook \
+                -H "Content-Type: application/json" \
+                -d '{
+                    "job_name": "'${JOB_NAME}'",
+                    "build_number": '${BUILD_NUMBER}',
+                    "status": "FAILED",
+                    "repo": "'${GIT_URL}'",
+                    "branch": "'${GIT_BRANCH}'"
+                }' || true
+            '''
         }
     }
 }

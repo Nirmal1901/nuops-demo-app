@@ -23,10 +23,18 @@ pipeline {
         }
         
         stage('Run Tests') {
+            // Continue even if tests fail
             steps {
-                sh '''
-                    python3 -m pytest tests/ -v --junitxml=test-results.xml --cov=. --cov-report=xml
-                '''
+                script {
+                    try {
+                        sh '''
+                            python3 -m pytest tests/ -v --junitxml=test-results.xml --cov=. --cov-report=xml
+                        '''
+                    } catch (Exception e) {
+                        echo "⚠️ Tests failed, but continuing to SonarQube..."
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
             }
             post {
                 always {
@@ -36,16 +44,17 @@ pipeline {
         }
         
         stage('SonarQube Analysis') {
-            // Run SonarQube even if tests fail
+            // Run SonarQube regardless of test results
             steps {
                 script {
                     withSonarQubeEnv('SonarQube-Local') {
                         sh '''
+                            echo "🔍 Running SonarQube analysis..."
                             sonar-scanner \
                                 -Dsonar.projectKey=nuops-demo-app \
                                 -Dsonar.projectName="NuOps Demo App" \
                                 -Dsonar.sources=. \
-                                -Dsonar.exclusions=**/tests/** \
+                                -Dsonar.exclusions=**/tests/**,**/venv/** \
                                 -Dsonar.python.coverage.reportPaths=coverage.xml \
                                 -Dsonar.python.xunit.reportPath=test-results.xml
                         '''
@@ -57,7 +66,7 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: false  // Don't abort, just report
+                    waitForQualityGate abortPipeline: false
                 }
             }
         }
@@ -67,7 +76,6 @@ pipeline {
         always {
             // Always send results to NuOps
             script {
-                def qualityGate = currentBuild.result
                 sh """
                     curl -X POST http://localhost:5001/webhook \
                     -H "Content-Type: application/json" \

@@ -44,10 +44,8 @@ pipeline {
         
         stage('SonarQube Analysis') {
             steps {
-                script {
-                    // Ensure sonar-scanner is in PATH
+                withSonarQubeEnv('SonarQube-Local') {
                     sh '''
-                        export PATH=$PATH:/opt/homebrew/bin
                         echo "🔍 Running SonarQube analysis..."
                         sonar-scanner \
                             -Dsonar.projectKey=nuops-demo-app \
@@ -55,8 +53,7 @@ pipeline {
                             -Dsonar.sources=. \
                             -Dsonar.exclusions=**/tests/**,**/venv/** \
                             -Dsonar.python.coverage.reportPaths=coverage.xml \
-                            -Dsonar.python.xunit.reportPath=test-results.xml \
-                            -Dsonar.host.url=${SONAR_HOST_URL}
+                            -Dsonar.python.xunit.reportPath=test-results.xml
                     '''
                 }
             }
